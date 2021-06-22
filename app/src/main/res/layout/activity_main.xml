@@ -31,5 +31,12 @@
         android:text="신호세기 결과창"
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
+    <TextView
+        android:id="@+id/textViewAlt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="고도센서 결과창"
+        android:textAppearance="?android:attr/textAppearanceLarge" />
+
 
 </LinearLayout>

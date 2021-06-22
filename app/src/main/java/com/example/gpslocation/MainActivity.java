@@ -8,6 +8,10 @@ import androidx.core.content.ContextCompat;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -30,6 +34,11 @@ public class MainActivity extends AppCompatActivity {
     ToggleButton tb;
     TextView sigtv;
     TelephonyManager tm;
+    SensorManager sm;
+    Sensor pressen;
+    SensorEventListener SEL;
+    TextView alt_tv;
+
 
     @SuppressLint("ServiceCast")
     @Override
@@ -57,10 +66,30 @@ public class MainActivity extends AppCompatActivity {
         sigtv = (TextView) findViewById(R.id.textView3);
         sigtv.setText("신호세기 수신 대기중");
 
+        alt_tv = (TextView) findViewById(R.id.textViewAlt);
+        alt_tv.setText("고도 센서 수신 대기중");
+
         // LocationManager 객체를 얻어온다
         final LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
         tm =  (TelephonyManager) getSystemService (TELEPHONY_SERVICE);
         tm.listen(mPhoneStateListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+
+        sm = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+        pressen = sm.getDefaultSensor(Sensor.TYPE_PRESSURE);
+
+        SEL = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                Log.d("ttttest","this2");
+                float sval = event.values[0];
+                alt_tv.setText("고도: " + mgetAlt(sval));
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
 
 
         tb.setOnClickListener(new View.OnClickListener() {
@@ -88,6 +117,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     } // end of onCreate
+
+    @Override
+    protected void onResume(){
+        super.onResume();
+        Log.d("ttttest","this");
+        sm.registerListener(SEL, pressen, sm.SENSOR_DELAY_UI);
+    }
+
+    public float mgetAlt(float ssval){
+        return sm.getAltitude(sm.PRESSURE_STANDARD_ATMOSPHERE, ssval);
+    }
+
     PhoneStateListener mPhoneStateListener = new PhoneStateListener(){
         @RequiresApi(api = Build.VERSION_CODES.Q)
         @Override
@@ -117,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
             //Network 위치제공자에 의한 위치변화
             //Network 위치는 Gps에 비해 정확도가 많이 떨어진다.
             tv.setText("위치정보 : " + provider + "\n위도 : " + longitude + "\n경도 : " + latitude
-                    + "\n고도 : " + altitude + "\n정확도 : "  + accuracy);
+                    + "\n정확도 : "  + accuracy);
         }
         public void onProviderDisabled(String provider) {
             // Disabled시
