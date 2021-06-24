@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
     Sensor pressen;
     SensorEventListener SEL;
     TextView alt_tv;
-
+    LocationManager lm;
 
     @SuppressLint("ServiceCast")
     @Override
@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         alt_tv.setText("고도 센서 수신 대기중");
 
         // LocationManager 객체를 얻어온다
-        final LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
         tm =  (TelephonyManager) getSystemService (TELEPHONY_SERVICE);
         tm.listen(mPhoneStateListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
@@ -123,6 +123,17 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         Log.d("ttttest","this");
         sm.registerListener(SEL, pressen, sm.SENSOR_DELAY_UI);
+        try {
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, // 등록할 위치제공자
+                    100, // 통지사이의 최소 시간간격 (miliSecond)
+                    1, // 통지사이의 최소 변경거리 (m)
+                    mLocationListener);
+            lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, // 등록할 위치제공자
+                    100, // 통지사이의 최소 시간간격 (miliSecond)
+                    1, // 통지사이의 최소 변경거리 (m)
+                    mLocationListener);
+        } catch(SecurityException ex){
+        }
     }
 
     public float mgetAlt(float ssval){
