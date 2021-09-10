@@ -17,6 +17,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthLte;
 import android.telephony.PhoneStateListener;
@@ -26,9 +27,27 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+
 public class MainActivity extends AppCompatActivity {
+    public static String saveStorage = ""; //저장된 파일 경로
+    public static String saveData = ""; //저장된 파일 내용
+
+    long now = System.currentTimeMillis(); //TODO 현재시간 받아오기
+    Date date = new Date(now); //TODO Date 객체 생성
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
+    String nowTime = sdf.format(date);
+
+    String textFileName = "/FindMeDrone"+nowTime+".txt";
+    File storedFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/SaveStorage"+textFileName);
 
     TextView tv;
     ToggleButton tb;
@@ -39,6 +58,44 @@ public class MainActivity extends AppCompatActivity {
     SensorEventListener SEL;
     TextView alt_tv;
     LocationManager lm;
+
+    //textWriterFunction
+    public void mySaveText(String data, int appDataType){
+        try {
+            saveData = data;
+            File storageDir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/SaveStorage"); //TODO 저장 경로
+            //TODO 폴더 생성
+            if(!storageDir.exists()){ //TODO 폴더 없을 경우
+                storageDir.mkdir(); //TODO 폴더 생성
+            }
+
+            long now2 = System.currentTimeMillis(); //TODO 현재시간 받아오기
+            Date date2 = new Date(now2); //TODO Date 객체 생성
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
+            String nowTime2 = sdf.format(date2);
+
+            BufferedWriter buf = new BufferedWriter(new FileWriter(storedFile, true));
+            if(appDataType == 1){
+                buf.append("["+nowTime2+"]" + "\nRSRP: ["+saveData+"]"); //TODO 날짜 쓰기
+            }
+            else if (appDataType==2){
+                buf.append("["+nowTime2+"]" + "\nAltitude: ["+saveData+"]"); //TODO 날짜 쓰기
+            }
+            else if (appDataType ==3){
+                buf.append("["+nowTime2+"]" + "\nGPS: ["+saveData+"]"); //TODO 날짜 쓰기
+            }
+            buf.newLine(); //TODO 개행
+            buf.close();
+
+            saveStorage = String.valueOf(storageDir+textFileName); //TODO 경로 저장 /storage 시작
+            //saveStorage = String.valueOf(storageDir.toURI()+textFileName); //TODO 경로 저장 file:/ 시작
+
+            Toast.makeText(getApplication(),"텍스트 파일이 저장되었습니다",Toast.LENGTH_SHORT).show();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 
     @SuppressLint("ServiceCast")
     @Override
@@ -83,7 +140,9 @@ public class MainActivity extends AppCompatActivity {
             public void onSensorChanged(SensorEvent event) {
                 Log.d("ttttest","this2");
                 float sval = event.values[0];
-                alt_tv.setText("고도: " + mgetAlt(sval));
+                String altNow = String.valueOf(mgetAlt(sval));
+                alt_tv.setText("고도: " + altNow);
+                mySaveText(altNow, 2);
             }
 
             @Override
@@ -150,7 +209,9 @@ public class MainActivity extends AppCompatActivity {
             Log.d("SignalStrength", strSignal);
             Log.d("tttest","here");
             CellSignalStrengthLte ltesig = (CellSignalStrengthLte)  signalStrength.getCellSignalStrengths().get(0);
-            sigtv.setText("RSRP : "+ ltesig.getRsrp());
+            String rsrpNow = String.valueOf(ltesig.getRsrp());
+            sigtv.setText("RSRP : "+ rsrpNow);
+            mySaveText(rsrpNow,1);
         }
     };
 
@@ -170,6 +231,9 @@ public class MainActivity extends AppCompatActivity {
             //Network 위치는 Gps에 비해 정확도가 많이 떨어진다.
             tv.setText("위치정보 : " + provider + "\n위도 : " + longitude + "\n경도 : " + latitude
                     + "\n정확도 : "  + accuracy);
+            String gpsNowConcat = "위치정보 : " + provider + "\n위도 : " + longitude + "\n경도 : " + latitude
+                    + "\n정확도 : "  + accuracy;
+            mySaveText(gpsNowConcat,3);
         }
         public void onProviderDisabled(String provider) {
             // Disabled시
