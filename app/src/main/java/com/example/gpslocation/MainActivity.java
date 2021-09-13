@@ -1,12 +1,17 @@
 package com.example.gpslocation;
 
+import static java.lang.String.valueOf;
+
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -32,22 +37,112 @@ import android.widget.ToggleButton;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.OutputStreamWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
 public class MainActivity extends AppCompatActivity {
-    public static String saveStorage = ""; //저장된 파일 경로
-    public static String saveData = ""; //저장된 파일 내용
+    FileWriter writer;
+    final int PERMISSIONS_REQUEST_CODE = 1;
+    String whereDir;
+    String thisFile;
 
-    long now = System.currentTimeMillis(); //TODO 현재시간 받아오기
-    Date date = new Date(now); //TODO Date 객체 생성
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
-    String nowTime = sdf.format(date);
+    private void requestPermission() {
+        boolean shouldProviceRationale =
+                ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE);//사용자가 이전에 거절한적이 있어도 true 반환
 
-    String textFileName = "/FindMeDrone"+nowTime+".txt";
-    File storedFile = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/SaveStorage"+textFileName);
+        if (shouldProviceRationale) {
+            //앱에 필요한 권한이 없어서 권한 요청
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSIONS_REQUEST_CODE);
+        } else {
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, PERMISSIONS_REQUEST_CODE);
+            //권한있을때.
+            //오레오부터 꼭 권한체크내에서 파일 만들어줘야함
+            makeDir();
+        }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        switch (requestCode) {
+            case PERMISSIONS_REQUEST_CODE: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    //권한 허용 선택시
+                    //오레오부터 꼭 권한체크내에서 파일 만들어줘야함
+                    makeDir();
+                } else {
+                    //사용자가 권한 거절시
+                    denialDialog();
+                }
+                return;
+            }
+        }
+    }
+
+    public void denialDialog() {
+    }
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+
+
+    public void verifyStoragePermissions(Activity activity) {
+        // Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    PERMISSIONS_REQUEST_CODE
+            );
+        }
+    }
+
+    public void makeDir() {
+        String root = Environment.getExternalStorageDirectory().getAbsolutePath(); //내장에 만든다
+        String directoryName = "DroneStorage";
+        final File myDir = new File(root + "/" + directoryName);
+        if (!myDir.exists()) {
+            boolean wasSuccessful = myDir.mkdir();
+            if (!wasSuccessful) {
+                System.out.println("file: was not successful.");
+            } else {
+                System.out.println("file: first create files." + root + "/" + directoryName);
+            }
+        } else {
+            System.out.println("file: " + root + "/" + directoryName +"already exists");
+        }
+        whereDir = root + "/" + directoryName;
+        long now = System.currentTimeMillis(); //TODO 현재시간 받아오기
+        Date date = new Date(now); //TODO Date 객체 생성
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
+        String nowTime = sdf.format(date);
+        String textFileName = "FindMeDrone " + nowTime + ".txt";
+        thisFile = textFileName;
+        File file = new File(myDir+textFileName);
+        try{
+            if(!file.exists()){
+                file.createNewFile();
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 
     TextView tv;
     ToggleButton tb;
@@ -62,35 +157,33 @@ public class MainActivity extends AppCompatActivity {
     //textWriterFunction
     public void mySaveText(String data, int appDataType){
         try {
-            saveData = data;
-            File storageDir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/SaveStorage"); //TODO 저장 경로
-            //TODO 폴더 생성
-            if(!storageDir.exists()){ //TODO 폴더 없을 경우
-                storageDir.mkdir(); //TODO 폴더 생성
-            }
+            String saveData = data;
+            verifyStoragePermissions(this);
+            File filereal = new File(whereDir+"/"+thisFile);
+            writer = new FileWriter(filereal,true);
+            Log.d("texttest","WWWriterON!");
 
             long now2 = System.currentTimeMillis(); //TODO 현재시간 받아오기
             Date date2 = new Date(now2); //TODO Date 객체 생성
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd kk:mm:ss");
             String nowTime2 = sdf.format(date2);
 
-            BufferedWriter buf = new BufferedWriter(new FileWriter(storedFile, true));
             if(appDataType == 1){
-                buf.append("["+nowTime2+"]" + "\nRSRP: ["+saveData+"]"); //TODO 날짜 쓰기
+                writer.write("["+nowTime2+"]" + "\nRSRP: ["+saveData+"]"); //TODO 날짜 쓰기
             }
             else if (appDataType==2){
-                buf.append("["+nowTime2+"]" + "\nAltitude: ["+saveData+"]"); //TODO 날짜 쓰기
+                writer.write("["+nowTime2+"]" + "\nAltitude: ["+saveData+"]"); //TODO 고도 쓰기
+                Log.d("texttest","alttttitudesavvvvvved");
             }
             else if (appDataType ==3){
-                buf.append("["+nowTime2+"]" + "\nGPS: ["+saveData+"]"); //TODO 날짜 쓰기
+                writer.write("["+nowTime2+"]" + "\nGPS: ["+saveData+"]"); //TODO GPS 쓰기
             }
-            buf.newLine(); //TODO 개행
-            buf.close();
+            writer.write("\n");
+            writer.flush();
+            writer.close();
+            Log.d("texttest","saveddddeeed");
 
-            saveStorage = String.valueOf(storageDir+textFileName); //TODO 경로 저장 /storage 시작
-            //saveStorage = String.valueOf(storageDir.toURI()+textFileName); //TODO 경로 저장 file:/ 시작
-
-            Toast.makeText(getApplication(),"텍스트 파일이 저장되었습니다",Toast.LENGTH_SHORT).show();
+//            Toast.makeText(getApplication(),"텍스트 파일이 저장되었습니다",Toast.LENGTH_SHORT).show();
         }
         catch (Exception e){
             e.printStackTrace();
@@ -102,18 +195,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Location 제공자에서 정보를 얻어오기(GPS)
-        // 1. Location을 사용하기 위한 권한을 얻어와야한다 AndroidManifest.xml
-        //     ACCESS_FINE_LOCATION : NETWORK_PROVIDER, GPS_PROVIDER
-        //     ACCESS_COARSE_LOCATION : NETWORK_PROVIDER
-        // 2. LocationManager 를 통해서 원하는 제공자의 리스너 등록
-        // 3. GPS 는 에뮬레이터에서는 기본적으로 동작하지 않는다
-        // 4. 실내에서는 GPS_PROVIDER 를 요청해도 응답이 없다.  특별한 처리를 안하면 아무리 시간이 지나도
-        //    응답이 없다.
-        //    해결방법은
-        //     ① 타이머를 설정하여 GPS_PROVIDER 에서 일정시간 응답이 없는 경우 NETWORK_PROVIDER로 전환
-        //     ② 혹은, 둘다 한꺼번헤 호출하여 들어오는 값을 사용하는 방식.
 
         //add same things for sensors
         tv = (TextView) findViewById(R.id.textView2);
@@ -138,9 +219,9 @@ public class MainActivity extends AppCompatActivity {
         SEL = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                Log.d("ttttest","this2");
+//                Log.d("ttttest","this2");
                 float sval = event.values[0];
-                String altNow = String.valueOf(mgetAlt(sval));
+                String altNow = valueOf(mgetAlt(sval));
                 alt_tv.setText("고도: " + altNow);
                 mySaveText(altNow, 2);
             }
@@ -171,16 +252,18 @@ public class MainActivity extends AppCompatActivity {
                         tv.setText("위치정보 미수신중");
                         lm.removeUpdates(mLocationListener);  //  미수신할때는 반드시 자원해체를 해주어야 한다.
                     }
+//                    mySaveText("thisisfstTest",2);
                 }catch(SecurityException ex){
                 }
             }
         });
+        requestPermission();
     } // end of onCreate
 
     @Override
     protected void onResume(){
         super.onResume();
-        Log.d("ttttest","this");
+//        Log.d("ttttest","this");
         sm.registerListener(SEL, pressen, sm.SENSOR_DELAY_UI);
         try {
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, // 등록할 위치제공자
@@ -206,10 +289,10 @@ public class MainActivity extends AppCompatActivity {
             super.onSignalStrengthsChanged(signalStrength);
             //RSRP (Reference Signal Received Power) - 단위 dBm (절대크기). - 단말에 수신되는 Reference Signal의 Power
             String strSignal = signalStrength.toString();
-            Log.d("SignalStrength", strSignal);
-            Log.d("tttest","here");
+//            Log.d("SignalStrength", strSignal);
+//            Log.d("tttest","here");
             CellSignalStrengthLte ltesig = (CellSignalStrengthLte)  signalStrength.getCellSignalStrengths().get(0);
-            String rsrpNow = String.valueOf(ltesig.getRsrp());
+            String rsrpNow = valueOf(ltesig.getRsrp());
             sigtv.setText("RSRP : "+ rsrpNow);
             mySaveText(rsrpNow,1);
         }
@@ -220,7 +303,7 @@ public class MainActivity extends AppCompatActivity {
             //여기서 위치값이 갱신되면 이벤트가 발생한다.
             //값은 Location 형태로 리턴되며 좌표 출력 방법은 다음과 같다.
 
-            Log.d("test", "onLocationChanged, location:" + location);
+//            Log.d("test", "onLocationChanged, location:" + location);
             double longitude = location.getLongitude(); //경도
             double latitude = location.getLatitude();   //위도
             double altitude = location.getAltitude();   //고도
@@ -237,17 +320,17 @@ public class MainActivity extends AppCompatActivity {
         }
         public void onProviderDisabled(String provider) {
             // Disabled시
-            Log.d("test", "onProviderDisabled, provider:" + provider);
+//            Log.d("test", "onProviderDisabled, provider:" + provider);
         }
 
         public void onProviderEnabled(String provider) {
             // Enabled시
-            Log.d("test", "onProviderEnabled, provider:" + provider);
+//            Log.d("test", "onProviderEnabled, provider:" + provider);
         }
 
         public void onStatusChanged(String provider, int status, Bundle extras) {
             // 변경시
-            Log.d("test", "onStatusChanged, provider:" + provider + ", status:" + status + " ,Bundle:" + extras);
+//            Log.d("test", "onStatusChanged, provider:" + provider + ", status:" + status + " ,Bundle:" + extras);
         }
     };
 } // end of class
